@@ -1,13 +1,24 @@
 import os
 import sys
 import pygame
-
+import random
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
 FPS = 30
+
 # ЗАСТАВКА start_screen
 BACKGROUND = (0, 0, 0)
-TEXT_COLOR = (0, 0, 0)
+CLR_TEXT = (0, 0, 0)
+
+# Board
+EMPTY = -1
+TOP = 50
+LEFT = 50
+BOARD_WIDTH = 8
+BOARD_HEIGHT = 8
+CELL_SIZE = 64
+CLR_BORDER = (255, 255, 255)  # BLUE
+COUNT_JEWELS = 2
 
 
 def load_image(name, color_key=None):
@@ -28,7 +39,7 @@ def load_image(name, color_key=None):
 
 
 def start_screen(screen, clock):
-    intro_text = ["ЗАСТАВКА", "",
+    intro_text = ["JEWELS", "",
                   "Правила игры",
                   "Если в правилах несколько строк,",
                   "приходится выводить их построчно"]
@@ -38,7 +49,7 @@ def start_screen(screen, clock):
     font = pygame.font.Font(None, 30)
     text_coord = 50
     for line in intro_text:
-        string_rendered = font.render(line, True, TEXT_COLOR)
+        string_rendered = font.render(line, True, CLR_TEXT)
         intro_rect = string_rendered.get_rect()
         text_coord += 10
         intro_rect.top = text_coord
@@ -65,18 +76,87 @@ def start_screen(screen, clock):
         clock.tick()
 
 
+class Board():
+
+    def __init__(self, width=BOARD_WIDTH, height=BOARD_HEIGHT):
+        self.width = width
+        self.height = height
+        self.left = LEFT
+        self.top = TOP
+        self.cell_size = CELL_SIZE
+        self.jewels = []
+        self.load_jewels()
+        self.jewels_rnd = list(range(len(self.jewels)))
+        self.board = [[self.get_jewel()] * width for _ in range(height)]
+
+    def get_jewel(self):
+        return random.choice(self.jewels_rnd)
+
+    def render(self, screen):
+        for x in range(self.width):
+            for y in range(self.height):
+                pygame.draw.rect(screen, CLR_BORDER,
+                                 ((self.left + x * self.cell_size,
+                                   self.top + y * self.cell_size),
+                                  (self.cell_size, self.cell_size)), 1)
+                jew_num = self.board[x][y]
+                if jew_num != EMPTY:
+                    screen.blit(self.jewels[jew_num], self.border_rect(x, y))
+
+    def border_rect(self, x, y):
+        return pygame.Rect((self.left + x * self.cell_size,
+                            self.top + y * self.cell_size),
+                           (self.cell_size, self.cell_size))
+
+    def check_click(self, pos):
+        for x in range(self.width):
+            for y in range(self.height):
+                if self.border_rect(x, y).collidepoint(pos[0], pos[1]):
+                    return x, y
+        return None
+
+    def load_jewels(self):
+        for i in range(1, COUNT_JEWELS+1):
+            jewel = load_image('jewel%s.png' % i)
+            if jewel.get_size() != (CELL_SIZE, CELL_SIZE):
+                jewel = pygame.transform.smoothscale(jewel,
+                                                     (CELL_SIZE, CELL_SIZE))
+            self.jewels.append(jewel)
+
+
+class Game():
+
+    def __init__(self, screen, clock):
+        self.screen = screen
+        self.clock = clock
+        self.board = Board()
+        self.score = 0
+
+    def run(self):
+        self.board.render(self.screen)
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT \
+                        or (event.type == pygame.KEYUP and
+                            event.key == pygame.K_ESCAPE):
+                    terminate()
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    pass
+                    # self.board.check_click(event.pos)
+            self.board.render(self.screen)
+            self.clock.tick(FPS)
+            pygame.display.flip()
+
+
 def main():
     pygame.init()
-    pygame.display.set_caption("myGame1")
+    pygame.display.set_caption("FunnyGame")
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode(WINDOW_SIZE)
     start_screen(screen, clock)
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
-        clock.tick(FPS)
-        pygame.display.flip()
+    screen.fill(BACKGROUND)
+    game = Game(screen, clock)
+    game.run()
 
 
 def terminate():
