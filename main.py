@@ -1,7 +1,8 @@
+import copy
 import os
 import sys
 import pygame
-import random
+from random import choice, sample
 
 WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
 FPS = 30
@@ -18,7 +19,7 @@ BOARD_WIDTH = 8
 BOARD_HEIGHT = 8
 CELL_SIZE = 64
 CLR_BORDER = (255, 255, 255)  # BLUE
-COUNT_JEWELS = 2
+COUNT_JEWELS = 6
 
 
 def load_image(name, color_key=None):
@@ -76,7 +77,7 @@ def start_screen(screen, clock):
         clock.tick()
 
 
-class Board():
+class Board:
 
     def __init__(self, width=BOARD_WIDTH, height=BOARD_HEIGHT):
         self.width = width
@@ -86,11 +87,26 @@ class Board():
         self.cell_size = CELL_SIZE
         self.jewels = []
         self.load_jewels()
-        self.jewels_rnd = list(range(len(self.jewels)))
-        self.board = [[self.get_jewel()] * width for _ in range(height)]
+        self.board = [[EMPTY] * width for _ in range(height)]
+        self.generate_board()
 
-    def get_jewel(self):
-        return random.choice(self.jewels_rnd)
+    def generate_board(self):
+        rnd = sample(list(range(len(self.jewels))), k=len(self.jewels))
+        for x in range(self.width):
+            for y in range(self.height):
+                self.board[x][y] = choice(rnd)
+    #
+    # def draw_count(self, screen, cell_coord):
+    #     x, y = cell_coord
+    #     font = pygame.font.Font(None, self.cell_size)
+    #     text = font.render(str(self.board[y][x]), True, (0, 255, 0))
+    #     text_x = (self.left + (x + 0.5) * self.cell_size -
+    #               text.get_width() // 2)
+    #     text_y = (self.top + (y + 0.5) * self.cell_size -
+    #               text.get_height() // 2)
+    #     text_w = text.get_width()
+    #     text_h = text.get_height()
+    #     screen.blit(text, (text_x, text_y))
 
     def render(self, screen):
         for x in range(self.width):
@@ -101,6 +117,7 @@ class Board():
                                   (self.cell_size, self.cell_size)), 1)
                 jew_num = self.board[x][y]
                 if jew_num != EMPTY:
+                    # self.draw_count(screen, (x, y))
                     screen.blit(self.jewels[jew_num], self.border_rect(x, y))
 
     def border_rect(self, x, y):
@@ -109,10 +126,11 @@ class Board():
                            (self.cell_size, self.cell_size))
 
     def check_click(self, pos):
-        for x in range(self.width):
-            for y in range(self.height):
-                if self.border_rect(x, y).collidepoint(pos[0], pos[1]):
-                    return x, y
+        if pos:
+            for x in range(self.width):
+                for y in range(self.height):
+                    if self.border_rect(x, y).collidepoint(pos[0], pos[1]):
+                        return x, y
         return None
 
     def load_jewels(self):
@@ -123,26 +141,88 @@ class Board():
                                                      (CELL_SIZE, CELL_SIZE))
             self.jewels.append(jewel)
 
+    def get_jewel(self, board, x, y):
+        if x < 0 or y < 0 or x >= self.width or y >= self.height:
+            return None
+        else:
+            return board[x][y]
 
-class Game():
+    def get_drop_cell(self):
+        jewel_to_del = []
+        board_copy = copy.deepcopy(self.board)
+        for x in range(self.width):
+            for y in range(self.height):
+                # горизонтальные
+                if self.get_jewel(board_copy, x, y) \
+                        == self.get_jewel(board_copy, x + 1, y) \
+                        == self.get_jewel(board_copy, x + 2, y) \
+                        and self.get_jewel(board_copy, x, y) != EMPTY:
+                    cell = self.get_jewel(board_copy, x, y)
+                    offset = 0
+                    ds = []
+                    while cell == self.get_jewel(board_copy, x + offset, y):
+                        ds.append((x + offset, y))
+                        board_copy[x + offset][y] = EMPTY
+                        offset += 1
+                    jewel_to_del.append(ds)
+                # вертикальные
+                if self.get_jewel(board_copy, x, y) \
+                        == self.get_jewel(board_copy, x, y + 1) \
+                        == self.get_jewel(board_copy, x, y + 2) \
+                        and self.get_jewel(board_copy, x, y) != EMPTY:
+                    cell = self.get_jewel(board_copy, x, y)
+                    offset = 0
+                    ds = []
+                    while cell == self.get_jewel(board_copy, x, y + offset):
+                        ds.append((x, y + offset))
+                        board_copy[x][y + offset] = EMPTY
+                        offset += 1
+                    jewel_to_del.append(ds)
+        return jewel_to_del
+
+
+class Game:
 
     def __init__(self, screen, clock):
         self.screen = screen
         self.clock = clock
         self.board = Board()
         self.score = 0
+        self.clicked = None
+        self.l_pos = None  # last_pos
+        self.first_sld = None  # first_selected
 
     def run(self):
         self.board.render(self.screen)
         while True:
+            self.clicked = None
             for event in pygame.event.get():
                 if event.type == pygame.QUIT \
                         or (event.type == pygame.KEYUP and
                             event.key == pygame.K_ESCAPE):
                     terminate()
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    pass
-                    # self.board.check_click(event.pos)
+                    # print('btnUp')
+                    if event.pos == self.l_pos:
+                        self.clicked = self.board.check_click(event.pos)
+                    else:
+                        self.first_sld = self.board.check_click(self.l_pos)
+                        self.clicked = self.board.check_click(event.pos)
+                        if not self.first_sld or not self.clicked:
+                            self.first_sld = None
+                            self.clicked = None
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # print('btnDn')
+                    self.l_pos = event.pos
+            if self.clicked and not self.first_sld:
+                self.first_sld = self.clicked
+                # print('first', self.first_selected)
+            elif self.clicked and self.first_sld:
+                # print('second', self.clicked)
+                self.first_sld = None
+                self.clicked = None
+                m = self.board.get_drop_cell()
+                print(m)
             self.board.render(self.screen)
             self.clock.tick(FPS)
             pygame.display.flip()
