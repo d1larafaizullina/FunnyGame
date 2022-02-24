@@ -40,11 +40,11 @@ def load_image(name, color_key=None):
 
 
 def start_screen(screen, clock):
-    intro_text = ["JEWELS", "",
+    intro_text = ["JEWEL BOOM", "",
                   "Правила игры",
                   "Если в правилах несколько строк,",
                   "приходится выводить их построчно"]
-    fon = pygame.transform.scale(load_image('fon.jpg'), WINDOW_SIZE)
+    fon = pygame.transform.scale(load_image('zastavka.png'), WINDOW_SIZE)
     screen.fill(BACKGROUND)
     screen.blit(fon, (0, 0))
     font = pygame.font.Font(None, 30)
@@ -75,6 +75,18 @@ def start_screen(screen, clock):
                     return  # начинаем игру
         pygame.display.update()
         clock.tick()
+
+
+class Jewel(pygame.sprite.Sprite):
+
+    def __init__(self, num, board, x, y, *group):
+        super().__init__(*group)
+        self.num = num
+        self.image = load_image('jewel%s.png' % num)
+        self.rect = board.border_rect(x, y)
+
+    def update(self, *args):
+        pass
 
 
 class Board:
@@ -230,7 +242,7 @@ class Game:
 
 def main():
     pygame.init()
-    pygame.display.set_caption("FunnyGame")
+    pygame.display.set_caption("Jewel boom")
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode(WINDOW_SIZE)
     start_screen(screen, clock)
