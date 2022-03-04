@@ -1,6 +1,8 @@
 import copy
 import os
 import sys
+from pprint import pprint
+
 import pygame
 from random import choice, sample
 
@@ -247,7 +249,9 @@ class Board:
 
         for x in range(self.width):
             for y in range(self.height-1, -1, -1):
+
                 if board_copy[x][y] == EMPTY:
+                    print('xy', board_copy[x][y])
                     possibles = list(range(len(self.jewel_images)))
                     for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
                         neighbor = self.get_jewel(board_copy, x + dx, y + dy)
@@ -327,6 +331,10 @@ class Board:
             else:
                 self.board[jewel.x][0] = jewel.num
 
+    def swap_jewels(self, first, second):
+        self.board[first.x][first.y] = second.num
+        self.board[second.x][second.y] = first.num
+
 
 class Game:
 
@@ -396,15 +404,33 @@ class Game:
                 if first_sw_jew is None and second_sw_jew is None:
                     self.first_sld = None
                     continue
-                self.board.get_board_copy([first_sw_jew, second_sw_jew])
-                # self.animate_moving([first_sw_jew, second_sw_jew])
-                print('first', first_sw_jew)
-                print('second', second_sw_jew)
+                board_copy = self.board.get_board_copy([first_sw_jew, second_sw_jew])
+                self.board.animate_moving(board_copy,
+                                          [first_sw_jew, second_sw_jew],
+                                          self.screen, self.clock)
+                self.board.swap_jewels(first_sw_jew, second_sw_jew)
+                # pprint(self.board.board)
+                jews_to_del = self.board.get_drop_cell()
+                print('jews_to_del', jews_to_del)
+                if not jews_to_del:
+                    # Нечего менять, возвращаем все как было
+                    self.board.animate_moving(board_copy,
+                                              [first_sw_jew, second_sw_jew],
+                                              self.screen, self.clock)
+                    self.board.swap_jewels(first_sw_jew, second_sw_jew)
+                else:
+                    while jews_to_del != []:
+                        for set in jews_to_del:
+                            for jew in set:
+                                self.board.board[jew[0]][jew[1]] = EMPTY
+                        self.board.render(self.screen, self.clock)
+                        jews_to_del = self.board.get_drop_cell()
+                # print('first', first_sw_jew)
+                # print('second', second_sw_jew)
                 self.first_sld = None
-                self.clicked = None
-                m = self.board.get_drop_cell()
-                # print(m)
-            # self.board.render(self.screen)
+                # self.clicked = None
+
+            self.board.render(self.screen, self.clock)
             self.clock.tick(FPS)
             pygame.display.flip()
 
