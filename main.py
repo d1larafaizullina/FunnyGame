@@ -10,8 +10,8 @@ WINDOW_SIZE = WINDOW_WIDTH, WINDOW_HEIGHT = 800, 600
 FPS = 30
 
 # ЗАСТАВКА start_screen
-BACKGROUND = (0, 0, 0)
-CLR_TEXT = (0, 0, 0)
+BACKGROUND = (41, 49, 51)
+CLR_TEXT = (191, 255, 0)
 
 # Board
 EMPTY = -1
@@ -20,18 +20,18 @@ BOARD_LEFT = 50
 BOARD_WIDTH = 8
 BOARD_HEIGHT = 8
 CELL_SIZE = 64
-CLR_BORDER = (255, 255, 255)
+CLR_BORDER = (201, 192, 187)
+HIGHLIGHT_COLOR = (229, 43, 80)
 COUNT_JEWELS = 6
+SCORE_COLOR = (153, 255, 153)
+ROW_ABOVE = 'невидимый ряд'
+SPEED = 25
 
 # Jewel
 UP = 'up'
 DOWN = 'down'
 LEFT = 'left'
 RIGHT = 'right'
-
-#
-ROW_ABOVE = 'невидимый ряд'
-SPEED = 25
 
 
 def load_image(name, color_key=None):
@@ -75,15 +75,15 @@ def start_screen(screen, clock):
             if event.type == pygame.QUIT:
                 terminate()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                print("1. Начинаем игру!")
+                # print("1. Начинаем игру!")
                 return  # начинаем игру
             if event.type == pygame.KEYDOWN:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_ESCAPE]:
-                    print("0. Завершаем игру!")
+                    # print("0. Завершаем игру!")
                     terminate()
                 else:
-                    print("2. Начинаем игру!")
+                    # print("2. Начинаем игру!")
                     return  # начинаем игру
         pygame.display.update()
         clock.tick()
@@ -109,7 +109,7 @@ class Board:
         self.jewel_images = []
         self.load_jewel_images()
         self.board = [[EMPTY] * width for _ in range(height)]
-        # self.generate_board()
+        self.score_font = pygame.font.Font(None, 42)
 
     def generate_board(self):
         rnd = sample(list(range(len(self.jewel_images))),
@@ -117,6 +117,20 @@ class Board:
         for x in range(self.width):
             for y in range(self.height):
                 self.board[x][y] = choice(rnd)
+
+    def draw_board(self, board, screen):
+        for x in range(self.width):
+            for y in range(self.height):
+                pygame.draw.rect(screen, CLR_BORDER, self.border_rect(x, y), 1)
+                num = board[x][y]
+                if num != EMPTY:
+                    screen.blit(self.jewel_images[num], self.border_rect(x, y))
+
+    def draw_score(self, screen, score, color=SCORE_COLOR):
+        score_img = self.score_font.render(str(score), 1, color)
+        score_rect = score_img.get_rect()
+        score_rect.bottomleft = (WINDOW_WIDTH - 120, 50)
+        screen.blit(score_img, score_rect)
 
     def moving_jewel(self, jewel, step, screen):
         dx = 0
@@ -141,24 +155,22 @@ class Board:
         r = pygame.Rect((px + dx, py + dy, CELL_SIZE, CELL_SIZE))
         screen.blit(self.jewel_images[jewel.num], r)
 
-    def animate_moving(self, board, jewels, screen, clock):
-        #, pointsText, score):
-        print('animate_moving')
+    def animate_moving(self, board, jewels, screen, clock, score):
+        # print('animate_moving')
         step = 0
         while step < 100:
             screen.fill(BACKGROUND)
-            # рисуем board
+            self.draw_board(board, screen)
             for jewel in jewels:
                 self.moving_jewel(jewel, step, screen)
-            # Очки
-            # ...
+            self.draw_score(screen, score)
             pygame.display.update()
             clock.tick(FPS)
             step += SPEED
 
-    def render(self, screen, clock):  #, points, score):
+    def render(self, screen, clock, score):
         drops = self.get_drops()
-        print('drops', drops)
+        # print('drops', drops)
         while drops != [[]] * BOARD_WIDTH:
 
             jewel_drops = self.get_jewel_drops()
@@ -166,7 +178,7 @@ class Board:
                 if len(drops[x]) != 0:
                     jewel_drops.append(Jewel(drops[x][0], x, ROW_ABOVE, DOWN))
             board_copy = self.get_board_copy(jewel_drops)
-            self.animate_moving(board_copy, jewel_drops, screen, clock)
+            self.animate_moving(board_copy, jewel_drops, screen, clock, score)
             self.move_jewels(jewel_drops)
 
             for x in range(len(drops)):
@@ -229,20 +241,21 @@ class Board:
             return board[x][y]
 
     def down_jewels(self, board_copy):
-        print('Board.down_jewels')
+        # print('Board.down_jewels')
         for x in range(self.width):
             column_jewels = []
             for y in range(self.height):
                 if board_copy[x][y] != EMPTY:
                     column_jewels.append(board_copy[x][y])
-            board_copy[x] = ([EMPTY] * (self.height
-                                        - len(column_jewels))) + column_jewels
+            board_copy[x] = ([EMPTY] * (self.height -
+                                        len(column_jewels))) + column_jewels
 
     def get_drops(self):
-        print('Board.get_drops')
+        # print('Board.get_drops')
         board_copy = copy.deepcopy(self.board)
+        # pprint(board_copy)
         self.down_jewels(board_copy)
-
+        # pprint(board_copy)
         drops = []
         for i in range(self.width):
             drops.append([])
@@ -251,7 +264,7 @@ class Board:
             for y in range(self.height-1, -1, -1):
 
                 if board_copy[x][y] == EMPTY:
-                    print('xy', board_copy[x][y])
+                    # print('xy', board_copy[x][y])
                     possibles = list(range(len(self.jewel_images)))
                     for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
                         neighbor = self.get_jewel(board_copy, x + dx, y + dy)
@@ -263,7 +276,7 @@ class Board:
         return drops
 
     def get_jewel_drops(self):
-        print('Board.get_jewel_drops')
+        # print('Board.get_jewel_drops')
         board_copy = copy.deepcopy(self.board)
         jewel_drops = []
         for x in range(self.width):
@@ -335,6 +348,9 @@ class Board:
         self.board[first.x][first.y] = second.num
         self.board[second.x][second.y] = first.num
 
+    def highlight_cell(self, x, y, screen, ):
+        pygame.draw.rect(screen, HIGHLIGHT_COLOR, self.border_rect(x, y), 4)
+
 
 class Game:
 
@@ -349,22 +365,24 @@ class Game:
         self.jewels = []
 
     def get_swapping_jewels(self, first, second):
-        first_jewel = Jewel(self.board.board[first[0]][first[1]], first[0],
-                            first[1])
-        second_jewel = Jewel(self.board.board[second[0]][second[1]], second[0],
-                             second[1])
-        print('first_sw', first_jewel.num, first_jewel.x, first_jewel.y)
-        print('second_sw', second_jewel.num, second_jewel.x, second_jewel.y)
-        if first_jewel.x == second_jewel.x + 1 and first_jewel.y == second_jewel.y:
+        first_jewel = Jewel(self.board.board[first[0]][first[1]],
+                            first[0], first[1])
+        second_jewel = Jewel(self.board.board[second[0]][second[1]],
+                             second[0], second[1])
+        if first_jewel.x == second_jewel.x + 1\
+                and first_jewel.y == second_jewel.y:
             first_jewel.direct = LEFT
             second_jewel.direct = RIGHT
-        elif first_jewel.x == second_jewel.x - 1 and first_jewel.y == second_jewel.y:
+        elif first_jewel.x == second_jewel.x - 1\
+                and first_jewel.y == second_jewel.y:
             first_jewel.direct = RIGHT
             second_jewel.direct = LEFT
-        elif first_jewel.x == second_jewel.x and first_jewel.y == second_jewel.y + 1:
+        elif first_jewel.x == second_jewel.x\
+                and first_jewel.y == second_jewel.y + 1:
             first_jewel.direct = UP
             second_jewel.direct = DOWN
-        elif first_jewel.x == second_jewel.x and first_jewel.y == second_jewel.y - 1:
+        elif first_jewel.x == second_jewel.x\
+                and first_jewel.y == second_jewel.y - 1:
             first_jewel.direct = DOWN
             second_jewel.direct = UP
         else:
@@ -373,7 +391,7 @@ class Game:
 
     def run(self):
         # self.board.render(self.screen)
-        self.board.render(self.screen, self.clock)
+        self.board.render(self.screen, self.clock, self.score)
         while True:
             self.clicked = None
             for event in pygame.event.get():
@@ -404,38 +422,45 @@ class Game:
                 if first_sw_jew is None and second_sw_jew is None:
                     self.first_sld = None
                     continue
-                board_copy = self.board.get_board_copy([first_sw_jew, second_sw_jew])
+                board_copy = self.board.get_board_copy([first_sw_jew,
+                                                        second_sw_jew])
                 self.board.animate_moving(board_copy,
                                           [first_sw_jew, second_sw_jew],
-                                          self.screen, self.clock)
+                                          self.screen, self.clock, self.score)
                 self.board.swap_jewels(first_sw_jew, second_sw_jew)
-                # pprint(self.board.board)
                 jews_to_del = self.board.get_drop_cell()
-                print('jews_to_del', jews_to_del)
+
                 if not jews_to_del:
                     # Нечего менять, возвращаем все как было
                     self.board.animate_moving(board_copy,
                                               [first_sw_jew, second_sw_jew],
-                                              self.screen, self.clock)
+                                              self.screen, self.clock,
+                                              self.score)
                     self.board.swap_jewels(first_sw_jew, second_sw_jew)
                 else:
-                    while jews_to_del != []:
-                        for set in jews_to_del:
-                            for jew in set:
+                    add_score = 0
+                    while jews_to_del:
+                        for sets in jews_to_del:
+                            add_score = (len(sets) - 3) * 3 + 3
+                            for jew in sets:
                                 self.board.board[jew[0]][jew[1]] = EMPTY
-                        self.board.render(self.screen, self.clock)
+                        self.board.render(self.screen, self.clock, self.score)
                         jews_to_del = self.board.get_drop_cell()
-                # print('first', first_sw_jew)
-                # print('second', second_sw_jew)
-                self.first_sld = None
-                # self.clicked = None
+                        self.score += add_score
 
-            self.board.render(self.screen, self.clock)
+                self.first_sld = None
+
+            self.screen.fill(BACKGROUND)
+            self.board.draw_board(self.board.board, self.screen)
+            if self.first_sld is not None:
+                self.board.highlight_cell(self.first_sld[0], self.first_sld[1], self.screen)
+            self.board.draw_score(self.screen, self.score)
             self.clock.tick(FPS)
             pygame.display.flip()
 
 
 def main():
+    # print(pygame.font.get_fonts())
     pygame.init()
     pygame.display.set_caption("Jewel boom")
     clock = pygame.time.Clock()
